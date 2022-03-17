@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/andrew-paterson/node-utils/issues"
   },
-  "homepage": "https://github.com/andrew-paterson/node-utils#readme"
+  "homepage": "https://github.com/andrew-paterson/node-utils#readme",
+  "dependencies": {
+    "eslint": "^8.11.0"
+  }
 }

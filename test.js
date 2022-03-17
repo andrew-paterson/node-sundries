@@ -25,17 +25,17 @@ module.exports = {
     return string.charAt(0).toUpperCase() + string.slice(1);
   },
   cleanEmptyFoldersRecursively(folder) {
-    var isDir = fs.statSync(folder).isDirectory();
+    const isDir = fs.statSync(folder).isDirectory();
 
     if (!isDir) {
       return;
     }
 
-    var files = fs.readdirSync(folder);
+    let files = fs.readdirSync(folder);
 
     if (files.length > 0) {
       files.forEach(file => {
-        var fullPath = path.join(folder, file);
+        const fullPath = path.join(folder, file);
         this.cleanEmptyFoldersRecursively(fullPath);
       }); // re-evaluate files; after deleting subfolder
       // we may have parent folder empty now
@@ -43,9 +43,8 @@ module.exports = {
       files = fs.readdirSync(folder);
     }
 
-    if (files.length == 0) {
+    if (files.length === 0) {
       fs.rmdirSync(folder);
-      return;
     }
   },
 
@@ -59,8 +58,9 @@ module.exports = {
     }).join('/');
   },
   conditionalSlash(string, position) {
-    return position === 'end' && string.endsWith('/') || position === 'start' && string.startsWith('/') ? '' : '/';
+    return (position === 'end' && string.endsWith('/')) || (position === 'start' && string.startsWith('/')) ? '' : '/';
   },
+  
   copyDirectory(source, dest, options = {}) {
     const rootSource = source ? path.resolve(process.cwd(), source) : process.cwd();
     const rootDest = dest ? path.resolve(process.cwd(), dest) : process.cwd();
@@ -72,10 +72,10 @@ module.exports = {
   },
 
   createMDFile(object, fileOutPutPath, frontMatterFormat) {
-    var frontMatter = object.frontMatter || {};
-    var content = object.content || {};
+    const frontMatter = object.frontMatter || {};
+    const content = object.content || {};
     return new Promise((resolve, reject) => {
-      var frontMatterDelimiter;
+      let frontMatterDelimiter;
 
       if (frontMatterFormat === 'toml') {
         frontMatterDelimiter = '+++';
@@ -83,7 +83,7 @@ module.exports = {
         frontMatterDelimiter = '---';
       }
 
-      var final = '';
+      let final = '';
 
       if (frontMatterFormat === 'toml') {
         // Only for toml, because JSON doesn't have delimiters and with yml, the YAML dep adds the first delimiter for you.
@@ -125,9 +125,9 @@ module.exports = {
         final += content.full_text.replace(content.intro_text, '').trim();
       }
 
-      var directoryOutPutPath = path.dirname(fileOutPutPath);
+      const directoryOutPutPath = path.dirname(fileOutPutPath);
       this.mkdirP(directoryOutPutPath);
-      var filepath = fileOutPutPath;
+      const filepath = fileOutPutPath;
       fs.writeFile(filepath, final, function (err) {
         if (err) {
           reject(err);
@@ -139,7 +139,7 @@ module.exports = {
   },
 
   createSha256(string) {
-    var hash = CryptoJS.SHA256(string);
+    const hash = CryptoJS.SHA256(string);
     return hash.toString(CryptoJS.enc.Hex);
   },
 
@@ -182,14 +182,14 @@ module.exports = {
 
   flattenDirectory(dir, opts = {}) {
     if (opts.copyDir) {
-      var copyResult = this.copyDirectory(dir, opts.copyDir.outputPath, opts.copyDir.copySyncOpts);
+      const copyResult = this.copyDirectory(dir, opts.copyDir.outputPath, opts.copyDir.copySyncOpts);
       dir = copyResult.to;
     }
 
     const rootdir = dir ? path.resolve(process.cwd(), dir) : process.cwd();
     this.getFiles(rootdir).forEach(orig => {
-      var rootDirParts = rootdir.split(path.sep);
-      var baseDir = orig.split(path.sep).slice(0, rootDirParts.length + (opts.depth || 0)).join(path.sep);
+      const rootDirParts = rootdir.split(path.sep);
+      const baseDir = orig.split(path.sep).slice(0, rootDirParts.length + (opts.depth || 0)).join(path.sep);
       const destFileName = orig.slice(baseDir.length).split(path.sep).filter(Boolean).join("-").split(" ").join("-");
       const dest = path.resolve(baseDir, destFileName);
       fs.renameSync(orig, dest);
@@ -221,67 +221,6 @@ module.exports = {
       return acc;
     } catch (e) {
       return acc;
-    }
-  },
-
-  getFiles(dir, files_) {
-    
-    files_ = files_ || [];
-    var files = fs.readdirSync(dir);
-
-    for (var i in files) {
-      var name = dir + '/' + files[i];
-
-      if (fs.statSync(name).isDirectory()) {
-        this.getFiles(name, files_);
-      } else {
-        files_.push(name);
-      }
-    }
-
-    return files_;
-  },
-  getFiles(dir, recursive = true, acc = []) {
-    try {
-      const files = fs.readdirSync(dir);
-
-      for (const i in files) {
-        const name = [dir, files[i]].join('/');
-
-        if (fs.statSync(name).isDirectory()) {
-          if (recursive) {
-            this.getFiles(name, recursive, acc);
-          }
-        } else {
-          acc.push(name);
-        }
-      }
-
-      return acc;
-    } catch (e) {
-      return acc;
-    }
-  },
-  getFiles(dir, files_) {
-    files_ = files_ || [];
-    let files;
-
-    try {
-      files = fs.readdirSync(dir);
-
-      for (const i in files) {
-        const name = path.join(dir, files[i]);
-
-        if (fs.statSync(name).isDirectory()) {
-          this.getFiles(name, files_);
-        } else {
-          files_.push(name);
-        }
-      }
-
-      return files_;
-    } catch (err) {
-      console.log(err);
     }
   },
 
@@ -365,7 +304,7 @@ module.exports = {
 
     (opts.customReplacements || []).forEach(replacement => {
       replacement.find.forEach(find => {
-        var findRegex = new RegExp(find, replacement.flags);
+        const findRegex = new RegExp(find, replacement.flags);
         filePath = filePath.replace(findRegex, replacement.replace);
       });
     });
@@ -378,8 +317,8 @@ module.exports = {
   },
 
   parseFilePaths(sourceDir, opts = {}) {
-    var absSourceDirPath = this.getAbsolutePath(sourceDir);
-    var objectPaths;
+    const absSourceDirPath = this.getAbsolutePath(sourceDir);
+    let objectPaths;
 
     if (opts.excludeFiles) {
       objectPaths = this.getDirs(absSourceDirPath);
@@ -393,7 +332,7 @@ module.exports = {
       if (opts.preserveDirname) {
         fs.renameSync(filePath, `${path.dirname(filePath)}/${this.parsedFilePath(path.basename(filePath))}`);
       } else {
-        var parsedSection = this.parsedFilePath(filePath.replace(absSourceDirPath, ''));
+        const parsedSection = this.parsedFilePath(filePath.replace(absSourceDirPath, ''));
         fs.renameSync(filePath, `${absSourceDirPath}${parsedSection}`);
       }
     });
@@ -442,16 +381,16 @@ module.exports = {
   },
 
   renameFilesAfterParentDir(sourceDir, opts = {}) {
-    var subDirs = [sourceDir].concat(this.getDirs(sourceDir));
+    const subDirs = [sourceDir].concat(this.getDirs(sourceDir));
     subDirs.forEach(subDir => {
-      var dirFiles = this.getFiles(subDir, false);
-      var maxIndexDigits = dirFiles.length.toString().length;
+      const dirFiles = this.getFiles(subDir, false);
+      const maxIndexDigits = dirFiles.length.toString().length;
       opts.minIndexDigits = opts.minIndexDigits || 0;
-      var indexDigits = opts.minIndexDigits > maxIndexDigits ? opts.minIndexDigits : maxIndexDigits;
+      const indexDigits = opts.minIndexDigits > maxIndexDigits ? opts.minIndexDigits : maxIndexDigits;
       dirFiles.forEach((orig, index) => {
-        var numberStr = (index + 1).toString().padStart(indexDigits, "0"); // Add zeroes to the beginning of the nmber, so that each file's number has the same number of digits.
+        const numberStr = (index + 1).toString().padStart(indexDigits, "0"); // Add zeroes to the beginning of the nmber, so that each file's number has the same number of digits.
 
-        var dest = `${subDir}/${path.basename(subDir)}-${numberStr}${path.extname(orig)}`;
+        const dest = `${subDir}/${path.basename(subDir)}-${numberStr}${path.extname(orig)}`;
         fs.renameSync(orig, dest);
       });
     });
