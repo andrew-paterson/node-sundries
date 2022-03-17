@@ -1,7 +1,7 @@
 {
-  "name": "utils",
+  "name": "node-utils",
   "version": "1.0.0",
-  "description": "",
+  "description": "Just a random collectin of node modules that I use often enough.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -16,7 +16,4 @@
     "url": "https://github.com/andrew-paterson/node-utils/issues"
   },
   "homepage": "https://github.com/andrew-paterson/node-utils#readme",
-  "dependencies": {
-    "eslint": "^8.11.0"
-  }
 }
