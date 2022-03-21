@@ -6,14 +6,13 @@ const fs = require('fs');
 const mkdirp = require('mkdirp');
 const path = require('path');
 const tomlify = require('tomlify-j0.4');
+const yamlToJS = require('js-yaml');
 
 module.exports = {
   camelize(str) {
-    
     if (!str) {
       return;
     }
-
     return str.toLowerCase().replace(' ', '_').replace(/-|_+(.)?/g, function (match, chr) {
       return chr ? chr.toUpperCase() : '';
     });
@@ -263,6 +262,12 @@ module.exports = {
     return val;
   },
 
+  isPojo(item) { // Docs - returns true if the entity passed is a plain old JavaScript object.
+    return typeof item === 'object' &&
+    !Array.isArray(item) &&
+    item !== null;
+  },
+
   kebabToPascalCase(string) {
     
     return string.toLowerCase().split('-').map(it => it.charAt(0).toUpperCase() + it.substr(1)).join('');
@@ -351,7 +356,6 @@ module.exports = {
 
 
   removeExt(filePath) {
-    
     return path.join(path.dirname(filePath), path.basename(filePath, path.extname(filePath)));
   },
   removeLeadingandTrailingSlash(str) {
@@ -442,4 +446,12 @@ module.exports = {
   uniqFilter(value, index, self) {
     return self.indexOf(value) === index;
   },
+
+  yamlFileToJs(filePath) {
+    try {
+      return yamlToJS.loadAll(fs.readFileSync(filePath, 'utf8'));
+    } catch (err) {
+      console.log(err);
+    }
+  }
 };

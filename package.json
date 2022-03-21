@@ -1,6 +1,6 @@
 {
-  "name": "node-utils",
-  "version": "0.0.1",
+  "name": "node-sundries",
+  "version": "0.0.2",
   "description": "Just a random collection of node modules that I use often in various projects",
   "main": "index.js",
   "scripts": {
@@ -8,16 +8,24 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/andrew-paterson/node-utils.git"
+    "url": "git+https://github.com/andrew-paterson/node-sundries.git"
   },
   "author": "Andrew Paterson",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/andrew-paterson/node-utils/issues"
+    "url": "https://github.com/andrew-paterson/node-sundries/issues"
   },
-  "homepage": "https://github.com/andrew-paterson/node-utils#readme",
-  "dependencies": {
+  "homepage": "https://github.com/andrew-paterson/node-sundries#readme",
+  "devDependencies": {
+    "copy-dir": "^1.3.0",
+    "crypto-js": "^4.1.1",
     "eslint": "^8.11.0",
-    "tag-and-release": "^1.0.14"
+    "i": "^0.3.7",
+    "js-yaml": "^4.1.0",
+    "json2yaml": "^1.1.0",
+    "mkdirp": "^1.0.4",
+    "npm": "^8.5.5",
+    "tag-and-release": "^1.0.14",
+    "tomlify-j0.4": "^3.0.0"
   }
 }
