@@ -1,14 +1,13 @@
-const CryptoJS = require('crypto-js');
-const YAML = require('json2yaml');
+
 const chalk = require('chalk');
-const copydir = require('copy-dir');
 const fs = require('fs');
-const mkdirp = require('mkdirp');
 const path = require('path');
-const tomlify = require('tomlify-j0.4');
-const yamlToJS = require('js-yaml');
 
 module.exports = {
+  basenameNoExt(filePath) {
+    return path.basename(filePath, path.extname(filePath));
+  },
+
   camelize(str) {
     if (!str) {
       return;
@@ -63,11 +62,16 @@ module.exports = {
   copyDirectory(source, dest, options = {}) {
     const rootSource = source ? path.resolve(process.cwd(), source) : process.cwd();
     const rootDest = dest ? path.resolve(process.cwd(), dest) : process.cwd();
-    copydir.sync(rootSource, rootDest, options);
-    return {
-      from: rootSource,
-      to: rootDest
-    };
+    try {
+      const copydir = require('copy-dir');
+      copydir.sync(rootSource, rootDest, options);
+      return {
+        from: rootSource,
+        to: rootDest
+      };
+    } catch (err) {
+      console.log(err);
+    }
   },
 
   createMDFile(object, fileOutPutPath, frontMatterFormat) {
@@ -90,11 +94,22 @@ module.exports = {
       }
 
       if (frontMatterFormat === 'toml') {
-        final += tomlify.toToml(frontMatter, {
-          space: 2
-        });
+        try {
+          const tomlify = require('tomlify-j0.4');
+          final += tomlify.toToml(frontMatter, {
+            space: 2
+          });
+        } catch (err) {
+          console.log(err);
+        }
       } else if (frontMatterFormat === 'yml' || frontMatterFormat === 'yaml') {
-        final += YAML.stringify(frontMatter);
+        try {
+          const YAML = require('json2yaml');
+          final += YAML.stringify(frontMatter);
+        } catch (err) {
+          console.log(err);
+        }
+        
       } else {
         if (frontMatterFormat !== 'json') {
           console.log(chalk.red(`${frontMatterFormat} is not a valid output format. Use 'toml', 'yml', 'yaml' ot 'json'. JSON has been used as the default.`));
@@ -138,8 +153,13 @@ module.exports = {
   },
 
   createSha256(string) {
-    const hash = CryptoJS.SHA256(string);
-    return hash.toString(CryptoJS.enc.Hex);
+    try {
+      const CryptoJS = require('crypto-js');
+      const hash = CryptoJS.SHA256(string);
+      return hash.toString(CryptoJS.enc.Hex);
+    } catch (err) {
+      console.log(err);
+    }
   },
 
   deleteFolderRecursively(directoryPath) {
@@ -289,14 +309,17 @@ module.exports = {
   },
 
   minifyText(text) {
-    
     return text.replace(/\n\s*\n/g, '').replace(/\s+/g, '');
   },
 
   mkdirP(dirPath) {
-    mkdirp.sync(dirPath);
+    try {
+      const mkdirp = require('mkdirp');
+      mkdirp.sync(dirPath);
+    } catch (err) {
+      console.log(err);
+    }
   },
-
 
   parsedFilePath: function (filePath, opts = {
     downcase: true
@@ -448,8 +471,13 @@ module.exports = {
   },
 
   yamlFileToJs(filePath) {
+    return this.yamlToJs(fs.readFileSync(filePath, 'utf8'));
+  },
+
+  yamlToJs(contents) {
     try {
-      return yamlToJS.loadAll(fs.readFileSync(filePath, 'utf8'));
+      const yamlToJS = require('js-yaml');
+      return yamlToJS.loadAll(contents);
     } catch (err) {
       console.log(err);
     }
