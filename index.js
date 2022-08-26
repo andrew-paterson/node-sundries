@@ -197,6 +197,23 @@ module.exports = {
     const srcMtime = opts.srcMtime || fs.statSync(opts.srcPath).mtime;
     return srcMtime > fs.statSync(opts.destPath).mtime;
   },
+
+  filesByBirthDate(path, direction) {
+    return this.getFiles(path, true).map(file => {
+      return {
+        path: file,
+        birthtime: fs.statSync(file).birthtime,
+        statSync: fs.statSync(file)
+      };
+    }).sort((a,b) => {
+      if (direction === 'desc') {
+        return b.birthtime - a.birthtime;
+      } else {
+        return a.birthtime - b.birthtime;
+
+      }
+    });
+  },
   
 
   flattenDirectory(dir, opts = {}) {
@@ -265,6 +282,17 @@ module.exports = {
     }
   },
 
+  getNamedArgVals() {
+    const [,, ...args] = process.argv;
+    return args.filter(arg => arg.indexOf('=') > -1).map(arg => {
+      return {
+        argName: arg.split(/=(.*)/s)[0],
+        camelisedArgName: this.camelize(arg.split(/=(.*)/s)[0]),
+        value: arg.split(/=(.*)/s)[1]
+      }
+    });
+  },
+
   getNamedArgVal(requested) {
     const [,, ...args] = process.argv;
     let val;
@@ -273,10 +301,10 @@ module.exports = {
         return;
       }
 
-      const argName = arg.split('=')[0];
+      const argName = arg.split(/=(.*)/s)[0];
 
       if (argName === requested) {
-        val = arg.split('=')[1];
+        val = arg.split(/=(.*)/s)[1];
       }
     });
     return val;
