@@ -4,6 +4,28 @@ const fs = require('fs');
 const path = require('path');
 
 module.exports = {
+  alphabetiseObjectKeys(object) {
+    const sortedObject = {};
+    Object.keys(object)
+      .sort()
+      .forEach(function(key) {
+        sortedObject[key] = object[key];
+      });
+    return sortedObject;
+  }, 
+
+  alphabetiseJsonApiAttrs(data) {
+    const object = typeof data === 'string' ? JSON.parse(data) : data;
+    object.data.attributes = this.alphabetiseObjectKeys(object.data.attributes);
+    if (object.included) {
+      object.included = (object.included || []).map(include => {
+        include.attributes = this.alphabetiseObjectKeys(include.attributes);
+        return include;
+      });
+    }
+    return typeof data === 'string' ? JSON.stringify(object, null, 2) : data;
+  },
+
   basenameNoExt(filePath) {
     return path.basename(filePath, path.extname(filePath));
   },
