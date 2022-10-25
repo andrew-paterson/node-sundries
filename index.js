@@ -332,6 +332,11 @@ module.exports = {
     return val;
   },
 
+  argExists(arg) {
+    const [,, ...args] = process.argv;
+    return args.indexOf(arg) > -1;
+  },
+
   isPojo(item) { // Docs - returns true if the entity passed is a plain old JavaScript object.
     return typeof item === 'object' &&
     !Array.isArray(item) &&
