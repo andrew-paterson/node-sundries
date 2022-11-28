@@ -532,7 +532,7 @@ module.exports = {
   yamlToJs(contents) {
     try {
       const yamlToJS = require('js-yaml');
-      return yamlToJS.loadAll(contents);
+      return yamlToJS.load(contents);
     } catch (err) {
       console.log(err);
     }
