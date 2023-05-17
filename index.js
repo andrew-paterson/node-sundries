@@ -1,4 +1,3 @@
-
 const chalk = require('chalk');
 const fs = require('fs');
 const path = require('path');
@@ -8,17 +7,17 @@ module.exports = {
     const sortedObject = {};
     Object.keys(object)
       .sort()
-      .forEach(function(key) {
+      .forEach(function (key) {
         sortedObject[key] = object[key];
       });
     return sortedObject;
-  }, 
+  },
 
   alphabetiseJsonApiAttrs(data) {
     const object = typeof data === 'string' ? JSON.parse(data) : data;
     object.data.attributes = this.alphabetiseObjectKeys(object.data.attributes);
     if (object.included) {
-      object.included = (object.included || []).map(include => {
+      object.included = (object.included || []).map((include) => {
         include.attributes = this.alphabetiseObjectKeys(include.attributes);
         return include;
       });
@@ -34,9 +33,12 @@ module.exports = {
     if (!str) {
       return;
     }
-    return str.toLowerCase().replace(' ', '_').replace(/-|_+(.)?/g, function (match, chr) {
-      return chr ? chr.toUpperCase() : '';
-    });
+    return str
+      .toLowerCase()
+      .replace(' ', '_')
+      .replace(/-|_+(.)?/g, function (match, chr) {
+        return chr ? chr.toUpperCase() : '';
+      });
   },
   capitaliseFirstChar(string) {
     return `${string[0].toUpperCase()}${string.slice(1)}`;
@@ -54,7 +56,7 @@ module.exports = {
     let files = fs.readdirSync(folder);
 
     if (files.length > 0) {
-      files.forEach(file => {
+      files.forEach((file) => {
         const fullPath = path.join(folder, file);
         this.cleanEmptyFoldersRecursively(fullPath);
       }); // re-evaluate files; after deleting subfolder
@@ -69,13 +71,16 @@ module.exports = {
   },
 
   combinePaths(array) {
-    return array.filter(item => {
-      return item;
-    }).map(item => {
-      item = this.removeLeadingSlash(item);
-      item = this.removeTrailingSlash(item);
-      return item;
-    }).join('/');
+    return array
+      .filter((item) => {
+        return item;
+      })
+      .map((item) => {
+        item = this.removeLeadingSlash(item);
+        item = this.removeTrailingSlash(item);
+        return item;
+      })
+      .join('/');
   },
   conditionalSlash(string, position) {
     return (position === 'end' && string.endsWith('/')) || (position === 'start' && string.startsWith('/')) ? '' : '/';
@@ -89,7 +94,7 @@ module.exports = {
       copydir.sync(rootSource, rootDest, options);
       return {
         from: rootSource,
-        to: rootDest
+        to: rootDest,
       };
     } catch (err) {
       console.log(err);
@@ -119,7 +124,7 @@ module.exports = {
         try {
           const tomlify = require('tomlify-j0.4');
           final += tomlify.toToml(frontMatter, {
-            space: 2
+            space: 2,
           });
         } catch (err) {
           console.log(err);
@@ -131,7 +136,6 @@ module.exports = {
         } catch (err) {
           console.log(err);
         }
-        
       } else {
         if (frontMatterFormat !== 'json') {
           console.log(chalk.red(`${frontMatterFormat} is not a valid output format. Use 'toml', 'yml', 'yaml' ot 'json'. JSON has been used as the default.`));
@@ -221,22 +225,22 @@ module.exports = {
   },
 
   filesByBirthDate(path, direction) {
-    return this.getFiles(path, true).map(file => {
-      return {
-        path: file,
-        birthtime: fs.statSync(file).birthtime,
-        statSync: fs.statSync(file)
-      };
-    }).sort((a,b) => {
-      if (direction === 'desc') {
-        return b.birthtime - a.birthtime;
-      } else {
-        return a.birthtime - b.birthtime;
-
-      }
-    });
+    return this.getFiles(path, true)
+      .map((file) => {
+        return {
+          path: file,
+          birthtime: fs.statSync(file).birthtime,
+          statSync: fs.statSync(file),
+        };
+      })
+      .sort((a, b) => {
+        if (direction === 'desc') {
+          return b.birthtime - a.birthtime;
+        } else {
+          return a.birthtime - b.birthtime;
+        }
+      });
   },
-  
 
   flattenDirectory(dir, opts = {}) {
     if (opts.copyDir) {
@@ -245,9 +249,12 @@ module.exports = {
     }
 
     const rootdir = dir ? path.resolve(process.cwd(), dir) : process.cwd();
-    this.getFiles(rootdir).forEach(orig => {
+    this.getFiles(rootdir).forEach((orig) => {
       const rootDirParts = rootdir.split(path.sep);
-      const baseDir = orig.split(path.sep).slice(0, rootDirParts.length + (opts.depth || 0)).join(path.sep);
+      const baseDir = orig
+        .split(path.sep)
+        .slice(0, rootDirParts.length + (opts.depth || 0))
+        .join(path.sep);
       const destFileName = orig.slice(baseDir.length).split(path.sep).filter(Boolean).join('-').split(' ').join('-');
       const dest = path.resolve(baseDir, destFileName);
       fs.renameSync(orig, dest);
@@ -260,41 +267,62 @@ module.exports = {
     return inputPath ? path.resolve(process.cwd(), inputPath) : process.cwd();
   },
 
-  getDirs(dir, recursive = true, acc = []) {
+  getDirs(dir, opts, acc = []) {
+    opts = opts || {};
+    opts.exclude = opts.exclude || [];
+    opts.recursive = opts.recursive === false ? false : true;
     try {
       const files = fs.readdirSync(dir);
 
       for (const i in files) {
         const name = [dir, files[i]].join('/');
-
         if (fs.statSync(name).isDirectory()) {
           acc.push(name);
 
-          if (recursive) {
-            this.getDirs(name, recursive, acc);
+          if (opts.recursive && opts.exclude.indexOf(path.basename(name)) < 0) {
+            this.getDirs(name, opts, acc);
           }
         }
       }
-
       return acc;
     } catch (e) {
       return acc;
     }
   },
 
-  getFiles(dir, recursive = true, acc = []) {
+  getFiles(dir, opts, acc = []) {
+    opts = opts || {};
+    opts.exclude = opts.exclude || [];
+    opts.recursive = opts.recursive === false ? false : true;
     try {
       const files = fs.readdirSync(dir);
-
       for (const i in files) {
         const name = [dir, files[i]].join('/');
-
         if (fs.statSync(name).isDirectory()) {
-          if (recursive) {
-            this.getFiles(name, recursive, acc);
+          if (opts.recursive && opts.exclude.indexOf(path.basename(name)) < 0) {
+            this.getFiles(name, opts, acc);
           }
         } else {
           acc.push(name);
+        }
+      }
+      return acc;
+    } catch (e) {
+      return acc;
+    }
+  },
+
+  getFilesAndDirs(dir, opts, acc = []) {
+    opts.recursive = opts.recursive || true;
+    try {
+      const files = fs.readdirSync(dir);
+      for (const i in files) {
+        const name = [dir, files[i]].join('/');
+        acc.push(name);
+        if (fs.statSync(name).isDirectory()) {
+          if (opts.recursive && opts.exclude.indexOf(path.basename(name)) < 0 && !opts.excludeFunction(name)) {
+            this.getFilesAndDirs(name, opts, acc);
+          }
         }
       }
 
@@ -305,20 +333,22 @@ module.exports = {
   },
 
   getNamedArgVals() {
-    const [,, ...args] = process.argv;
-    return args.filter(arg => arg.indexOf('=') > -1).map(arg => {
-      return {
-        argName: arg.split(/=(.*)/s)[0],
-        camelisedArgName: this.camelize(arg.split(/=(.*)/s)[0]),
-        value: arg.split(/=(.*)/s)[1]
-      }
-    });
+    const [, ...args] = process.argv;
+    return args
+      .filter((arg) => arg.indexOf('=') > -1)
+      .map((arg) => {
+        return {
+          argName: arg.split(/=(.*)/s)[0],
+          camelisedArgName: this.camelize(arg.split(/=(.*)/s)[0]),
+          value: arg.split(/=(.*)/s)[1],
+        };
+      });
   },
 
   getNamedArgVal(requested) {
-    const [,, ...args] = process.argv;
+    const [, ...args] = process.argv;
     let val;
-    args.forEach(arg => {
+    args.forEach((arg) => {
       if (arg.indexOf('=') < 0) {
         return;
       }
@@ -333,22 +363,23 @@ module.exports = {
   },
 
   argExists(arg) {
-    const [,, ...args] = process.argv;
+    const [, ...args] = process.argv;
     return args.indexOf(arg) > -1;
   },
 
-  isPojo(item) { // Docs - returns true if the entity passed is a plain old JavaScript object.
-    return typeof item === 'object' &&
-    !Array.isArray(item) &&
-    item !== null;
+  isPojo(item) {
+    // Docs - returns true if the entity passed is a plain old JavaScript object.
+    return typeof item === 'object' && !Array.isArray(item) && item !== null;
   },
 
   kebabToPascalCase(string) {
-    
-    return string.toLowerCase().split('-').map(it => it.charAt(0).toUpperCase() + it.substr(1)).join('');
+    return string
+      .toLowerCase()
+      .split('-')
+      .map((it) => it.charAt(0).toUpperCase() + it.substr(1))
+      .join('');
   },
   logJSToFile(outPut, filePath) {
-    
     if (!outPut) {
       return;
     }
@@ -376,17 +407,20 @@ module.exports = {
     }
   },
 
-  parsedFilePath: function (filePath, opts = {
-    downcase: true
-  }) {
+  parsedFilePath: function (
+    filePath,
+    opts = {
+      downcase: true,
+    }
+  ) {
     filePath = filePath.trim();
 
     if (opts.downcase) {
       filePath = filePath.toLowerCase();
     }
 
-    (opts.customReplacements || []).forEach(replacement => {
-      replacement.find.forEach(find => {
+    (opts.customReplacements || []).forEach((replacement) => {
+      replacement.find.forEach((find) => {
         const findRegex = new RegExp(find, replacement.flags);
         filePath = filePath.replace(findRegex, replacement.replace);
       });
@@ -411,7 +445,7 @@ module.exports = {
       objectPaths = this.getFiles(absSourceDirPath).concat(this.getDirs(absSourceDirPath));
     }
 
-    objectPaths.forEach(filePath => {
+    objectPaths.forEach((filePath) => {
       if (opts.preserveDirname) {
         fs.renameSync(filePath, `${path.dirname(filePath)}/${this.parsedFilePath(path.basename(filePath))}`);
       } else {
@@ -428,10 +462,9 @@ module.exports = {
 
   pathToAngleBracket(path) {
     const parts = this.removeLeadingSlash(path).split('/');
-    const parsed = parts.map(part => this.kebabToPascalCase(part));
+    const parsed = parts.map((part) => this.kebabToPascalCase(part));
     return parsed.join('::');
   },
-
 
   removeExt(filePath) {
     return path.join(path.dirname(filePath), path.basename(filePath, path.extname(filePath)));
@@ -445,13 +478,12 @@ module.exports = {
   removeLeadingSlash(str) {
     if (str.startsWith('/')) {
       return str.substring(1);
-    }  else if (str.startsWith('./')) {
+    } else if (str.startsWith('./')) {
       return str.substring(2);
     }
 
     return str;
   },
-
 
   removeTrailingSlash(str) {
     if (str.charAt(str.length - 1) === '/') {
@@ -463,7 +495,7 @@ module.exports = {
 
   renameFilesAfterParentDir(sourceDir, opts = {}) {
     const subDirs = [sourceDir].concat(this.getDirs(sourceDir));
-    subDirs.forEach(subDir => {
+    subDirs.forEach((subDir) => {
       const dirFiles = this.getFiles(subDir, false);
       const maxIndexDigits = dirFiles.length.toString().length;
       opts.minIndexDigits = opts.minIndexDigits || 0;
@@ -489,7 +521,7 @@ module.exports = {
 
     if (hours > 0) {
       portions.push(`${hours}h`);
-      duration = duration - (hours * msInHour);
+      duration = duration - hours * msInHour;
     }
 
     const msInMinute = 1000 * 60;
@@ -497,7 +529,7 @@ module.exports = {
 
     if (minutes > 0) {
       portions.push(`${minutes}m`);
-      duration = duration - (minutes * msInMinute);
+      duration = duration - minutes * msInMinute;
     }
 
     const seconds = Math.trunc(duration / 1000);
@@ -536,5 +568,25 @@ module.exports = {
     } catch (err) {
       console.log(err);
     }
-  }
+  },
+
+  readableFileSize(numberOfBytes) {
+    let readableSize;
+    let units;
+    numberOfBytes = numberOfBytes || 0;
+    if (numberOfBytes >= 0 && numberOfBytes < 1000) {
+      readableSize = numberOfBytes;
+      units = ' bytes';
+    } else if (numberOfBytes >= 1000 && numberOfBytes < 1000000) {
+      readableSize = Math.ceil(numberOfBytes / 1000);
+      units = ' KB';
+    } else if (numberOfBytes >= 1000000 && numberOfBytes < 1000000000) {
+      readableSize = (numberOfBytes / 1000000).toFixed(2);
+      units = ' MB';
+    } else if (numberOfBytes >= 1000000000) {
+      readableSize = (numberOfBytes / 1000000000).toFixed(2);
+      units = ' GB';
+    }
+    return readableSize + units;
+  },
 };
