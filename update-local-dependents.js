@@ -6,14 +6,14 @@ const fs = require('fs');
 let status;
 let hasChangesToCommit;
 let gitLog;
-let localAddonCommitResult;
+let dependentPackageCommitResult;
 const results = [];
 const amendConsuming = lib.getNamedArgVal('--amend-consuming');
 const amendConsumingNoEdit = lib.getNamedArgVal('--amend-consuming') === 'no-edit' ? true : false;
 const pushParentPackage = lib.getNamedArgVal('--push-hea') === 'true' ? true : false;
 const commitParentPackage = lib.getNamedArgVal('--commit-hea') === 'true' || pushParentPackage ? true : false;
 const updateParentPackage = lib.getNamedArgVal('--update-hea') === 'true' || commitParentPackage ? true : false;
-const pushLocalAddons = lib.getNamedArgVal('--push-local-addons') === 'true' ? true : false;
+const pushDependentPackages = lib.getNamedArgVal('--push-local-addons') === 'true' ? true : false;
 module.exports = async function (localConfig) {
   if (lib.argExists('--help')) {
     // printHelp();
@@ -38,9 +38,9 @@ module.exports = async function (localConfig) {
     console.log(chalk.white('[ -----------------------Preliminary checks started----------------------- ]'));
 
     await initialiseRepo(localConfig.hostAddonName, hostAddonGit, 'cyan', branchLockItem, localConfig);
-    const localAddons = [];
-    const localAddonsFiltered = localConfig.localDependents.filter((item) => !item.skip);
-    for (const item of localAddonsFiltered) {
+    const dependentPackages = [];
+    const dependentPackagesFiltered = localConfig.localDependents.filter((item) => !item.skip);
+    for (const item of dependentPackagesFiltered) {
       const repoPath = path.resolve(process.cwd(), item.repo);
       item.repo = repoPath;
       item.name = path.basename(item.repo);
@@ -49,56 +49,56 @@ module.exports = async function (localConfig) {
         baseDir: repoPath,
       });
       await initialiseRepo(item.name, item.git, 'blue', branchLockItem, localConfig);
-      localAddons.push(item);
+      dependentPackages.push(item);
     }
 
     console.log(chalk.white('[ -----------------------Preliminary checks completed----------------------- ]'));
 
-    for (const localAddon of localAddons) {
+    for (const dependentPackage of dependentPackages) {
       try {
-        status = await localAddon.git.status();
+        status = await dependentPackage.git.status();
         hasChangesToCommit = status.files.length > 0;
-        gitLog = await localAddon.git.log();
+        gitLog = await dependentPackage.git.log();
         if (!hasChangesToCommit) {
-          console.log(chalk.blue(`[${localAddon.name}] Nothing to commit - ParentPackageD is still at ${gitLog.latest.hash}`));
+          console.log(chalk.blue(`[${dependentPackage.name}] Nothing to commit - HEAD is still at ${gitLog.latest.hash}`));
+        } else if (!dependentPackage.commitMessage) {
+          console.log(chalk.blue(`[${dependentPackage.name}] Skipping as there are chnages to commit, but no commit message was provided.`));
+          continue;
         } else {
-          await localAddon.git.add('.');
-          console.log(chalk.blue(`[${localAddon.name}] Added untracked files`));
+          let dependentPackageCommitMessage = dependentPackage.commitMessage;
+          await dependentPackage.git.add('.');
+          console.log(chalk.blue(`[${dependentPackage.name}] Added untracked files`));
           const commitOptions = {};
           if (amendConsuming) {
             commitOptions['--amend'] = true;
           }
           if (amendConsumingNoEdit) {
             commitOptions['--no-edit'] = true;
-            localAddonCommitMessage = [];
+            dependentPackageCommitMessage = [];
           }
-          let localAddonCommitMessage = localAddon.commitMessage;
-          if (!localAddonCommitMessage) {
-            localAddonCommitMessage = localConfig.parentPackageCommitMessage;
-            console.log(chalk.yellow(`The consuming app did not have a commitMessage, using parentPackageCommitMessage as the commit message for ${localAddon.name}.`));
-          }
-          localAddonCommitResult = await localAddon.git.commit(localAddonCommitMessage, commitOptions);
-          await commitFeedback(localAddon.name, localAddonCommitResult, 'blue', localAddon.git);
+
+          dependentPackageCommitResult = await dependentPackage.git.commit(dependentPackageCommitMessage, commitOptions);
+          await commitFeedback(dependentPackage.name, dependentPackageCommitResult, 'blue', dependentPackage.git);
         }
         const pushOptions = [];
         if (amendConsuming || amendConsumingNoEdit) {
           pushOptions.push('-f');
         }
 
-        if (pushLocalAddons) {
-          const push = await localAddon.git.push(pushOptions);
+        if (pushDependentPackages) {
+          const push = await dependentPackage.git.push(pushOptions);
           const pushMessage = (push.pushed[0] || {}).alreadyUpdated ? 'Already pushed' : 'Pushed code';
-          console.log(chalk.blue(`[${localAddon.name}] ${pushMessage}}`));
-        } else {
-          console.log(chalk.blue(`[${localAddon.name}] code committed but not pushed.`));
+          console.log(chalk.blue(`[${dependentPackage.name}] ${pushMessage}}`));
+        } else if (hasChangesToCommit) {
+          console.log(chalk.blue(`[${dependentPackage.name}] code committed but not pushed.`));
         }
 
         const result = {
-          app: localAddon.name,
-          hash: await latestCommit(localAddon.git),
+          app: dependentPackage.name,
+          hash: await latestCommit(dependentPackage.git),
         };
-        if ((updateParentPackage || pushParentPackage) && localAddon.packageName) {
-          updateParentPackageFunc(localAddon, await latestCommit(localAddon.git), localConfig);
+        if ((updateParentPackage || pushParentPackage) && dependentPackage.packageName) {
+          updateParentPackageFunc(dependentPackage, await latestCommit(dependentPackage.git), localConfig);
           result.heaUpdated = true;
         }
         results.push(result);
@@ -123,32 +123,32 @@ module.exports = async function (localConfig) {
     console.log('RESULT');
     console.log(results);
     console.log('SKIPPED');
-    const localAddonsSkippedGit = [];
-    const localAddonsSkipped = localConfig.localDependents.filter((item) => item.skip);
-    for (const item of localAddonsSkipped) {
+    const dependentPackagesSkippedGit = [];
+    const dependentPackagesSkipped = localConfig.localDependents.filter((item) => item.skip);
+    for (const item of dependentPackagesSkipped) {
       const repoPath = path.resolve(process.cwd(), item.repo);
       item.name = path.basename(item.repo);
       item.git = simpleGit({
         baseDir: repoPath,
       });
-      localAddonsSkippedGit.push({
+      dependentPackagesSkippedGit.push({
         app: path.basename(item.repo),
         latestlocalHash: await latestCommit(item.git),
       });
     }
-    console.log(localAddonsSkippedGit);
+    console.log(dependentPackagesSkippedGit);
   } catch (err) {
     console.log(chalk.red(err));
   }
 };
 
-function updateParentPackageFunc(localAddon, sha, localConfig) {
+function updateParentPackageFunc(dependentPackage, sha, localConfig) {
   const heaPackageFilePath = path.resolve(localConfig.parentPackagePath, 'package.json');
   const heaPackageFile = require(heaPackageFilePath);
-  const localAddonPackageLink = heaPackageFile.dependencies[localAddon.packageName].split('#')[0];
-  heaPackageFile.dependencies[localAddon.packageName] = `${localAddonPackageLink}#${sha}`;
+  const dependentPackagePackageLink = heaPackageFile.dependencies[dependentPackage.packageName].split('#')[0];
+  heaPackageFile.dependencies[dependentPackage.packageName] = `${dependentPackagePackageLink}#${sha}`;
   fs.writeFileSync(heaPackageFilePath, JSON.stringify(heaPackageFile, null, 2));
-  console.log(chalk.cyan(`[${localConfig.hostAddonName}] Updated hash of ${localAddonPackageLink} to ${sha}`));
+  console.log(chalk.cyan(`[${localConfig.hostAddonName}] Updated hash of ${dependentPackagePackageLink} to ${sha}`));
 }
 
 async function commitParentPackageFunc(hostAddonGit, localConfig) {
