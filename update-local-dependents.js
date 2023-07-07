@@ -153,12 +153,26 @@ function updateParentPackageFunc(dependentPackage, sha, localConfig) {
 async function commitParentPackage(parentPackageGit, localConfig) {
   await parentPackageGit.add('.');
   console.log(chalk.cyan(`[${localConfig.parentPackageName}] Added untracked files`));
-  const parentPackageCommitResult = await parentPackageGit.commit(localConfig.parentPackage.commitMessage);
+  let parentPackageCommitMessage = localConfig.parentPackage.commitMessage;
+  const commitOptions = {};
+  if (localConfig.parentPackage.amendLatestCommit) {
+    commitOptions['--amend'] = true;
+  }
+  if (localConfig.parentPackage.amendLatestCommit === 'no-edit') {
+    commitOptions['--no-edit'] = true;
+    parentPackageCommitMessage = [];
+  }
+
+  const parentPackageCommitResult = await parentPackageGit.commit(parentPackageCommitMessage, commitOptions);
   await commitFeedback(localConfig.parentPackageName, parentPackageCommitResult, 'cyan', parentPackageGit);
 }
 
 async function pushParentPackage(parentPackageGit, localConfig) {
-  const parentPackagePush = await parentPackageGit.push();
+  const pushOptions = [];
+  if (localConfig.parentPackage.amendLatestCommit) {
+    pushOptions.push('-f');
+  }
+  const parentPackagePush = await parentPackageGit.push(pushOptions);
   const parentPackagePushMessage = (parentPackagePush.pushed[0] || {}).alreadyUpdated ? 'Already pushed' : 'Pushed code';
   console.log(chalk.cyan(`[${localConfig.parentPackageName}] ${parentPackagePushMessage}`));
 }
