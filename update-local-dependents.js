@@ -4,9 +4,6 @@ const simpleGit = require('simple-git');
 const path = require('path');
 const fs = require('fs');
 let status;
-let hasChangesToCommit;
-let gitLog;
-let dependentPackageCommitResult;
 const results = [];
 
 module.exports = async function (localConfig) {
@@ -14,7 +11,7 @@ module.exports = async function (localConfig) {
     // printHelp();
     return;
   }
-  localConfig.parentPackageName = path.basename(localConfig.parentPackage.repo);
+  localConfig.parentPackage.name = path.basename(localConfig.parentPackage.repo);
   localConfig.parentPackage.commit = localConfig.parentPackage.push ? true : localConfig.parentPackage.commit;
   localConfig.parentPackage.updatePackageFile = localConfig.parentPackage.commit ? true : localConfig.parentPackage.updatePackageFile;
 
@@ -24,9 +21,9 @@ module.exports = async function (localConfig) {
       baseDir: parentPackageDir,
     });
     const currentParentPackageBranch = (await parentPackageGit.branch()).current;
-    const branchLockItem = localConfig.branchLock.find((item) => item[localConfig.parentPackageName].trim() === currentParentPackageBranch);
+    const branchLockItem = localConfig.branchLock.find((item) => item[localConfig.parentPackage.name].trim() === currentParentPackageBranch);
     if (!branchLockItem) {
-      console.log(chalk.cyan(`Stopping as no branch lock entry exists for branch ${currentParentPackageBranch} in ${localConfig.parentPackageName}.`));
+      console.log(chalk.cyan(`Stopping as no branch lock entry exists for branch ${currentParentPackageBranch} in ${localConfig.parentPackage.name}.`));
       return;
     }
     console.log(chalk.white('[ -----------------------Branch lock----------------------- ]'));
@@ -35,8 +32,9 @@ module.exports = async function (localConfig) {
 
     console.log(chalk.white('[ -----------------------Preliminary checks started----------------------- ]'));
 
-    await initialiseRepo(localConfig.parentPackageName, parentPackageGit, 'cyan', branchLockItem, localConfig);
+    await initialiseRepo(localConfig.parentPackage.name, parentPackageGit, 'cyan', branchLockItem, localConfig);
     const dependentPackages = [];
+
     const dependentPackagesFiltered = localConfig.localDependents.filter((item) => !item.skip);
     for (const item of dependentPackagesFiltered) {
       const repoPath = path.resolve(process.cwd(), item.repo);
@@ -55,40 +53,21 @@ module.exports = async function (localConfig) {
     for (const dependentPackage of dependentPackages) {
       try {
         status = await dependentPackage.git.status();
-        hasChangesToCommit = status.files.length > 0;
-        gitLog = await dependentPackage.git.log();
-        if (!hasChangesToCommit) {
+        dependentPackage.hasChangesToCommit = status.files.length > 0;
+        const gitLog = await dependentPackage.git.log();
+
+        if (!dependentPackage.hasChangesToCommit) {
           console.log(chalk.blue(`[${dependentPackage.name}] Nothing to commit - HEAD is still at ${gitLog.latest.hash}`));
         } else if (!dependentPackage.commitMessage && dependentPackage.amendLatestCommit !== 'no-edit') {
           console.log(chalk.blue(`[${dependentPackage.name}] Skipping as there are chnages to commit, but no commit message was provided.`));
           continue;
         } else {
-          let dependentPackageCommitMessage = dependentPackage.commitMessage;
-          await dependentPackage.git.add('.');
-          console.log(chalk.blue(`[${dependentPackage.name}] Added untracked files`));
-
-          const commitOptions = {};
-          if (dependentPackage.amendLatestCommit) {
-            commitOptions['--amend'] = true;
-          }
-          if (dependentPackage.amendLatestCommit === 'no-edit') {
-            commitOptions['--no-edit'] = true;
-            dependentPackageCommitMessage = [];
-          }
-
-          dependentPackageCommitResult = await dependentPackage.git.commit(dependentPackageCommitMessage, commitOptions);
-          await commitFeedback(dependentPackage.name, dependentPackageCommitResult, 'blue', dependentPackage.git);
-        }
-        const pushOptions = [];
-        if (dependentPackage.amendLatestCommit) {
-          pushOptions.push('-f');
+          await commitPackage(dependentPackage.git, dependentPackage, 'blue');
         }
 
         if (dependentPackage.push) {
-          const push = await dependentPackage.git.push(pushOptions);
-          const pushMessage = (push.pushed[0] || {}).alreadyUpdated ? 'Already pushed' : 'Pushed code';
-          console.log(chalk.blue(`[${dependentPackage.name}] ${pushMessage}}`));
-        } else if (hasChangesToCommit) {
+          await pushPackage(dependentPackage.git, dependentPackage, 'blue');
+        } else if (dependentPackage.hasChangesToCommit) {
           console.log(chalk.blue(`[${dependentPackage.name}] code committed but not pushed.`));
         }
 
@@ -97,7 +76,7 @@ module.exports = async function (localConfig) {
           hash: await latestCommit(dependentPackage.git),
         };
         if ((localConfig.parentPackage.updatePackageFile || localConfig.parentPackage.push) && dependentPackage.packageName) {
-          updateParentPackageFunc(dependentPackage, await latestCommit(dependentPackage.git), localConfig);
+          updatePackageVersion(dependentPackage, await latestCommit(dependentPackage.git), localConfig.parentPackage);
           result.parentPackageUpdated = true;
         }
         results.push(result);
@@ -105,13 +84,11 @@ module.exports = async function (localConfig) {
         console.log(chalk.red(err));
       }
     }
-
     if (localConfig.parentPackage.commit || localConfig.parentPackage.push) {
-      await commitParentPackage(parentPackageGit, localConfig);
+      await commitPackage(parentPackageGit, localConfig.parantPackage, 'cyan');
     }
-
     if (localConfig.parentPackage.push) {
-      await pushParentPackage(parentPackageGit, localConfig);
+      await pushPackage(parentPackageGit, localConfig.parentPackage, 'cyan');
     }
 
     if (!results.length) {
@@ -141,40 +118,48 @@ module.exports = async function (localConfig) {
   }
 };
 
-function updateParentPackageFunc(dependentPackage, sha, localConfig) {
-  const parentPackageFilePath = path.resolve(localConfig.parentPackage.repo, 'package.json');
-  const parentPackageFile = require(parentPackageFilePath);
-  const dependentPackagePackageLink = parentPackageFile.dependencies[dependentPackage.packageName].split('#')[0];
-  parentPackageFile.dependencies[dependentPackage.packageName] = `${dependentPackagePackageLink}#${sha}`;
-  fs.writeFileSync(parentPackageFilePath, JSON.stringify(parentPackageFile, null, 2));
-  console.log(chalk.cyan(`[${localConfig.parentPackageName}] Updated hash of ${dependentPackagePackageLink} to ${sha}`));
+function updatePackageVersion(dependentPackage, version, packageConfig) {
+  const packageFilePath = path.resolve(packageConfig.repo, 'package.json');
+  const packageFile = require(packageFilePath);
+  if (packageFile.dependencies[dependentPackage.packageName].split('#')[1] === version) {
+    console.log(chalk.cyan(`[${packageConfig.name}] Version already set to ${version}, no update required.`));
+    return;
+  }
+  const dependentPackagePackageLink = packageFile.dependencies[dependentPackage.packageName].split('#')[0];
+  packageFile.dependencies[dependentPackage.packageName] = `${dependentPackagePackageLink}#${version}`;
+  fs.writeFileSync(packageFilePath, JSON.stringify(packageFile, null, 2));
+  console.log(chalk.cyan(`[${packageConfig.name}] Updated version of ${dependentPackagePackageLink} to ${version}`));
 }
 
-async function commitParentPackage(parentPackageGit, localConfig) {
-  await parentPackageGit.add('.');
-  console.log(chalk.cyan(`[${localConfig.parentPackageName}] Added untracked files`));
-  let parentPackageCommitMessage = localConfig.parentPackage.commitMessage;
+async function commitPackage(packageGit, packageConfig, logColour) {
+  await packageGit.add('.');
+  console.log(chalk.cyan(`[${packageConfig.name}] Added untracked files`));
+  let packageCommitMessage = packageConfig.commitMessage;
   const commitOptions = {};
-  if (localConfig.parentPackage.amendLatestCommit) {
+  if (packageConfig.amendLatestCommit) {
     commitOptions['--amend'] = true;
   }
-  if (localConfig.parentPackage.amendLatestCommit === 'no-edit') {
+  if (packageConfig.amendLatestCommit === 'no-edit') {
     commitOptions['--no-edit'] = true;
-    parentPackageCommitMessage = [];
+    packageCommitMessage = [];
   }
-
-  const parentPackageCommitResult = await parentPackageGit.commit(parentPackageCommitMessage, commitOptions);
-  await commitFeedback(localConfig.parentPackageName, parentPackageCommitResult, 'cyan', parentPackageGit);
+  const packageCommitResult = await packageGit.commit(packageCommitMessage, commitOptions);
+  const newSha = packageCommitResult.commit.length ? packageCommitResult.commit : null;
+  if (newSha) {
+    console.log(chalk[logColour](`[${packageConfig.name}] Add commit ${newSha} in branch ${packageCommitResult.branch}: ${JSON.stringify(packageCommitResult.summary)}`));
+  } else {
+    console.log(chalk[logColour](`[${packageConfig.name}] Nothing to commit - head is still at ${await latestCommit(packageGit)}`));
+  }
 }
 
-async function pushParentPackage(parentPackageGit, localConfig) {
+async function pushPackage(packageGit, packageConfig, logColour) {
   const pushOptions = [];
-  if (localConfig.parentPackage.amendLatestCommit) {
+  if (packageConfig.amendLatestCommit) {
     pushOptions.push('-f');
   }
-  const parentPackagePush = await parentPackageGit.push(pushOptions);
+  const parentPackagePush = await packageGit.push(pushOptions);
   const parentPackagePushMessage = (parentPackagePush.pushed[0] || {}).alreadyUpdated ? 'Already pushed' : 'Pushed code';
-  console.log(chalk.cyan(`[${localConfig.parentPackageName}] ${parentPackagePushMessage}`));
+  console.log(chalk[logColour](`[${packageConfig.name}] ${parentPackagePushMessage}`));
 }
 
 async function initialiseRepo(repoName, git, logColour, branchLockItem, localConfig) {
@@ -210,7 +195,7 @@ async function initialiseRepo(repoName, git, logColour, branchLockItem, localCon
 async function branchLockPass(appName, git, logColour, branchLockItem, localConfig) {
   try {
     if (!branchLockItem[appName]) {
-      throw `[${appName}] Error - the branch lock entry which includes ${localConfig.parentPackageName}: ${branchLockItem[localConfig.parentPackageName]}" does not specify a branch for ${appName}.`;
+      throw `[${appName}] Error - the branch lock entry which includes ${localConfig.parentPackage.name}: ${branchLockItem[localConfig.parentPackage.name]}" does not specify a branch for ${appName}.`;
     }
     const currentAppBranch = (await git.branch()).current;
     if (branchLockItem[appName] !== currentAppBranch) {
@@ -221,15 +206,6 @@ async function branchLockPass(appName, git, logColour, branchLockItem, localConf
   } catch (err) {
     console.log(chalk.red(err));
     throw err;
-  }
-}
-
-async function commitFeedback(repoName, commitResult, logColour, git) {
-  const newSha = commitResult.commit.length ? commitResult.commit : null;
-  if (newSha) {
-    console.log(chalk[logColour](`[${repoName}] Add commit ${newSha} in branch ${commitResult.branch}: ${JSON.stringify(commitResult.summary)}`));
-  } else {
-    console.log(chalk[logColour](`[${repoName}] Nothing to commit - head is still at ${await latestCommit(git)}`));
   }
 }
 
