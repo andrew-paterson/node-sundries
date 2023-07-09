@@ -11,7 +11,7 @@ module.exports = async function (localConfig) {
     // printHelp();
     return;
   }
-  localConfig.parentPackage.name = path.basename(localConfig.parentPackage.repo);
+  localConfig.parentPackage.name = path.basename(localConfig.parentPackage.localRepoPath);
   localConfig.parentPackage.commit = localConfig.parentPackage.push ? true : localConfig.parentPackage.commit;
   localConfig.parentPackage.updatePackageFile = localConfig.parentPackage.commit ? true : localConfig.parentPackage.updatePackageFile;
 
@@ -37,9 +37,9 @@ module.exports = async function (localConfig) {
 
     const dependentPackagesFiltered = localConfig.localDependents.filter((item) => !item.skip);
     for (const item of dependentPackagesFiltered) {
-      const repoPath = path.resolve(process.cwd(), item.repo);
-      item.repo = repoPath;
-      item.name = path.basename(item.repo);
+      const repoPath = path.resolve(process.cwd(), item.localRepoPath);
+      item.localRepoPath = repoPath;
+      item.name = path.basename(item.localRepoPath);
       item.packageName = item.packageName || path.basename(repoPath);
       item.git = simpleGit({
         baseDir: repoPath,
@@ -92,34 +92,37 @@ module.exports = async function (localConfig) {
     }
 
     if (!results.length) {
-      console.log(chalk.yellow('No consuming apps were updated'));
+      console.log(chalk.yellow('No dependent packages were updated'));
       return;
     }
-
-    console.log('RESULT');
-    console.log(results);
-    console.log('SKIPPED');
-    const dependentPackagesSkippedGit = [];
-    const dependentPackagesSkipped = localConfig.localDependents.filter((item) => item.skip);
-    for (const item of dependentPackagesSkipped) {
-      const repoPath = path.resolve(process.cwd(), item.repo);
-      item.name = path.basename(item.repo);
-      item.git = simpleGit({
-        baseDir: repoPath,
-      });
-      dependentPackagesSkippedGit.push({
-        app: path.basename(item.repo),
-        latestlocalHash: await latestCommit(item.git),
-      });
-    }
-    console.log(dependentPackagesSkippedGit);
+    await logResults(results, localConfig);
   } catch (err) {
     console.log(chalk.red(err));
   }
 };
 
+async function logResults(results, localConfig) {
+  console.log('RESULT');
+  console.log(results);
+  console.log('SKIPPED');
+  const dependentPackagesSkippedGit = [];
+  const dependentPackagesSkipped = localConfig.localDependents.filter((item) => item.skip);
+  for (const item of dependentPackagesSkipped) {
+    const repoPath = path.resolve(process.cwd(), item.localRepoPath);
+    item.name = path.basename(item.localRepoPath);
+    item.git = simpleGit({
+      baseDir: repoPath,
+    });
+    dependentPackagesSkippedGit.push({
+      app: path.basename(item.localRepoPath),
+      gitState: lib.gitState(item),
+    });
+  }
+  console.log(dependentPackagesSkippedGit);
+}
+
 function updatePackageVersion(dependentPackage, version, packageConfig) {
-  const packageFilePath = path.resolve(packageConfig.repo, 'package.json');
+  const packageFilePath = path.resolve(packageConfig.localRepoPath, 'package.json');
   const packageFile = require(packageFilePath);
   if (packageFile.dependencies[dependentPackage.packageName].split('#')[1] === version) {
     console.log(chalk.cyan(`[${packageConfig.name}] Version already set to ${version}, no update required.`));
