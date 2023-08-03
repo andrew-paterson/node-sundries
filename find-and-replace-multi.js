@@ -1,11 +1,13 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 const filesChanged = [];
 
 // Function to recursively walk through a directory and perform the replacements
 function replaceInFiles(dir, replacements) {
   // console.log(dir);
-  if (path.basename(dir).startsWith('.')) { return; }
+  if (path.basename(dir).startsWith('.')) {
+    return;
+  }
   // Get a list of all files and directories in the current directory
   const files = fs.readdirSync(dir);
   // Loop through each file/directory and process it accordingly
@@ -15,7 +17,7 @@ function replaceInFiles(dir, replacements) {
     if (fileStat.isDirectory()) {
       // Recursively process any subdirectories
       replaceInFiles(filePath, replacements);
-    } else if (fileStat.isFile()) { 
+    } else if (fileStat.isFile()) {
       // Read the file contents and perform replacements as needed
       let contents = fs.readFileSync(filePath, 'utf8');
       replacements.forEach((replacement) => {
@@ -27,15 +29,14 @@ function replaceInFiles(dir, replacements) {
       });
       // Write the updated contents back to the file
       fs.writeFileSync(filePath, contents);
-      
     }
   });
 }
 
-module.exports = function(directories, replacements) {
+export default function (directories, replacements) {
   // Loop through each directory and perform the replacements
   directories.forEach((directory) => {
     replaceInFiles(directory, replacements);
   });
   return filesChanged;
-};
+}

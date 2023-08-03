@@ -1,8 +1,8 @@
-const chalk = require('chalk');
-const fs = require('fs');
-const path = require('path');
+import chalk from 'chalk';
+import fs from 'fs';
+import path from 'path';
 
-module.exports = {
+export default {
   alphabetiseObjectKeys(object) {
     const sortedObject = {};
     Object.keys(object)
@@ -588,24 +588,5 @@ module.exports = {
       units = ' GB';
     }
     return readableSize + units;
-  },
-
-  gitState(options) {
-    const gitState = require('git-state');
-    const getGitInfo = require('git-repo-info');
-    if (gitState.isGitSync(options.localRepoPath)) {
-      const repoState = gitState.checkSync(options.localRepoPath);
-      const gitInfo = getGitInfo(options.localRepoPath);
-      const gitStatus = {};
-      for (const key in repoState) {
-        if (repoState[key] > 0) {
-          gitStatus[key] = repoState[key];
-        }
-      }
-      const output = gitStatus || {};
-      output.lastCommit = `${gitInfo.abbreviatedSha} "${gitInfo.commitMessage}"`;
-      return output;
-    }
-    return false;
   },
 };
