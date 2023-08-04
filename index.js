@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
+import mkdirp from 'mkdirp';
 
 export default {
   alphabetiseObjectKeys(object) {
@@ -400,7 +401,6 @@ export default {
 
   mkdirP(dirPath) {
     try {
-      const mkdirp = require('mkdirp');
       mkdirp.sync(dirPath);
     } catch (err) {
       console.log(err);

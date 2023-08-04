@@ -1,6 +1,6 @@
 {
   "name": "node-sundries",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Just a random collection of node modules that I use often in various projects",
   "main": "index.js",
   "type": "module",
